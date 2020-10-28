@@ -29,10 +29,21 @@ func NewDatapath(conn *net.TCPConn) *Datapath {
 	return dp
 }
 
+func (dp *Datapath) GetSendBuffer() chan *ofp13.OFMessage {
+	return dp.sendBuffer
+}
+
+func (dp *Datapath) GetDatapathId() uint64 {
+	return dp.datapathId
+}
+
 func (dp *Datapath) sendLoop() {
 	for {
 		// wait channel
-		msg := <-(dp.sendBuffer)
+		msg,ok := <-(dp.sendBuffer)
+		if !ok {
+			break
+		}
 		// serialize data
 		byteData := (*msg).Serialize()
 		_, err := dp.conn.Write(byteData)
@@ -50,9 +61,9 @@ func (dp *Datapath) recvLoop() {
 		// read
 		size, err := dp.conn.Read(buf)
 		if err != nil {
-			fmt.Println("failed to read conn")
-			fmt.Println(err)
-			return
+			fmt.Printf("[dpid:%d] exit with err:%v\n",dp.datapathId, err)
+			close(dp.sendBuffer)
+			break
 		}
 
 		// tmp := make([]byte, 2048)
